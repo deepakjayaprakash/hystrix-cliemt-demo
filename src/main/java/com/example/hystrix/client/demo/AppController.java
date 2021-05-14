@@ -1,6 +1,7 @@
 package com.example.hystrix.client.demo;
 
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,14 +15,35 @@ public class AppController {
 
     Logger logger = LoggerFactory.getLogger(AppController.class);
 
-//    @Autowired
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @HystrixCommand(fallbackMethod = "getDefaultResponse")
+    @RequestMapping(value = "/clientWithoutCB", method = RequestMethod.GET)
+    public ResponseDTO clientWithoutCB() {
+        return restTemplate.getForObject("http://localhost:8081/getSimpleResponse", ResponseDTO.class);
+    }
+
     @RequestMapping(value = "/client", method = RequestMethod.GET)
-    public ResponseDTO client() {
-        ResponseDTO responseDTO = new ResponseDTO();
-        responseDTO = restTemplate.getForObject("localhost:8081/getSimpleResponse", ResponseDTO.class);
+    public ResponseDTO clientWithCB() {
+        return getResponseWithCircuitBreaker();
+    }
+
+    /**
+     * Proxy Layer with circuit breaker
+     */
+    @HystrixCommand(fallbackMethod = "getDefaultResponse", commandProperties = {
+            @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "50"),
+            @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "5000"),
+            @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "10000")
+    })
+    private ResponseDTO getResponseWithCircuitBreaker() {
+        ResponseDTO responseDTO;
+        try {
+            responseDTO = restTemplate.getForObject("http://localhost:8081/getSimpleResponse", ResponseDTO.class);
+            logger.info("success_response: {}", responseDTO);
+        } catch (Exception e) {
+            logger.error("exception_from_method: {}", e.getMessage());
+            throw e;
+        }
         return responseDTO;
     }
 
