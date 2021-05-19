@@ -22,20 +22,16 @@ public class AppController {
         return restTemplate.getForObject("http://localhost:8081/getSimpleResponse", ResponseDTO.class);
     }
 
-    @RequestMapping(value = "/client", method = RequestMethod.GET)
-    public ResponseDTO clientWithCB() {
-        return getResponseWithCircuitBreaker();
-    }
-
     /**
      * Proxy Layer with circuit breaker
      */
+    @RequestMapping(value = "/client", method = RequestMethod.GET)
     @HystrixCommand(fallbackMethod = "getDefaultResponse", commandProperties = {
             @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "50"),
             @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "5000"),
             @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "10000")
     })
-    private ResponseDTO getResponseWithCircuitBreaker() {
+    public ResponseDTO clientWithCB() {
         ResponseDTO responseDTO;
         try {
             responseDTO = restTemplate.getForObject("http://localhost:8081/getSimpleResponse", ResponseDTO.class);
